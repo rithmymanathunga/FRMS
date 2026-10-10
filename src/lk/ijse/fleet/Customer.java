@@ -50,10 +50,9 @@ public abstract class Customer implements Reportable {
 
     @Override
     public String toString() {
-        return "Customer{"
-                + "customerId='" + customerId + '\''
-                + ", fullName='" + fullName + '\''
-                + ", contactNumber='" + contactNumber + '\''
-                + '}';
+        return "\n"
+                + "Customer ID      : " + customerId + "\n"
+                + "Full Name        : " + fullName + "\n"
+                + "Contact Number   : " + contactNumber;
     }
 }

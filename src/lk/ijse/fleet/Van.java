@@ -24,4 +24,10 @@ public class Van extends Vehicle {
         return (getDailyRate() * rentalDays * getFuelType().getCostMultiplier())
                 + (getDailyRate() * 0.20);
     }
+
+    @Override
+    public String toString() {
+        return super.toString()
+                + "\nPassenger Capacity : " + passengerCapacity;
+    }
 }

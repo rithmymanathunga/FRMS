@@ -5,6 +5,8 @@ import java.util.Scanner;
 
 public class Main {
 
+    private static final String LINE = "========================================================";
+
     private FleetManager fleetManager;
     private UserManager userManager;
     private Scanner scanner;
@@ -20,45 +22,150 @@ public class Main {
         scanner = new Scanner(System.in);
         fleetManager = new FleetManager();
         userManager = new UserManager();
+        fleetManager.initDisplay();
 
-        // Rental event listener
-        fleetManager.setRentalEventListener(
-                agreement -> System.out.println(
-                        "[EVENT] New rental created: "
-                                + agreement.getAgreementId()
-                )
+        // Mission 3 - Vehicle Status Monitor (daemon thread)
+        Thread statusThread = new Thread(new VehicleStatusMonitor(fleetManager));
+        statusThread.setDaemon(true);
+        statusThread.start();
+
+        // Mission 3 - Overdue Reminder Worker (daemon thread)
+        Thread overdueThread = new Thread(new OverdueReminderWorker(fleetManager));
+        overdueThread.setDaemon(true);
+        overdueThread.start();
+
+        // Mission 2 - RentalEventListener implemented with a lambda
+        fleetManager.setRentalEventListener(agreement ->
+                System.out.println("[EVENT] New rental created: " + agreement.getAgreementId())
         );
 
         showAuthMenu();
     }
 
-    private void showAuthMenu() {
+    private void runForm(Runnable form) {
+        fleetManager.beginForm();
+        try {
+            form.run();
+        } finally {
+            fleetManager.endForm();
+        }
+    }
+
+    private String readInput(String prompt) {
+        // showPrompt() lets the background threads re-draw this prompt
+        // after they print, so typing is never left in a messy state.
+        fleetManager.showPrompt(prompt);
+        if (!scanner.hasNextLine()) {
+            fleetManager.clearPrompt();
+            System.out.println();
+            System.out.println("Input closed. Exiting.");
+            System.exit(0);
+        }
+        String line = scanner.nextLine();
+        fleetManager.clearPrompt();
+        return line;
+    }
+
+
+    private String readRequired(String prompt) {
+        while (true) {
+            String value = readInput(prompt).trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
+            System.out.println("This field cannot be empty.");
+        }
+    }
+
+
+    private double readPositiveDouble(String prompt) {
+        while (true) {
+            try {
+                double value = Double.parseDouble(readInput(prompt).trim());
+                if (value > 0 && !Double.isInfinite(value)) {
+                    return value;
+                }
+                System.out.println("Value must be greater than 0.");
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid number.");
+            }
+        }
+    }
+
+
+    private int readPositiveInt(String prompt) {
+        while (true) {
+            try {
+                int value = Integer.parseInt(readInput(prompt).trim());
+                if (value > 0) {
+                    return value;
+                }
+                System.out.println("Value must be greater than 0.");
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid whole number.");
+            }
+        }
+    }
+
+
+    private int readNonNegativeInt(String prompt) {
+        while (true) {
+            try {
+                int value = Integer.parseInt(readInput(prompt).trim());
+                if (value >= 0) {
+                    return value;
+                }
+                System.out.println("Value cannot be negative.");
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid whole number.");
+            }
+        }
+    }
+
+
+    private int readChoice(String prompt, int min, int max) {
+        while (true) {
+            try {
+                int value = Integer.parseInt(readInput(prompt).trim());
+                if (value >= min && value <= max) {
+                    return value;
+                }
+                System.out.println("Please choose a number between " + min + " and " + max + ".");
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid number.");
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Auth menu
+    // ------------------------------------------------------------------
+
+    public void showAuthMenu() {
 
         while (true) {
 
             System.out.println();
-            System.out.println("=================================");
-            System.out.println("       FLEET RENTAL SYSTEM");
-            System.out.println("=================================");
+            System.out.println(LINE);
+            System.out.println("FLEET RENTAL MANAGEMENT SYSTEM (FRMS)");
+            System.out.println(LINE);
             System.out.println("[1] Login");
             System.out.println("[2] Register New User");
             System.out.println("[0] Exit");
-            System.out.print("Enter option: ");
+            System.out.println(LINE);
 
-            String input = scanner.nextLine();
+            String input = readInput("Enter choice > ");
 
             try {
-
-                int option = Integer.parseInt(input);
+                int option = Integer.parseInt(input.trim());
 
                 switch (option) {
-
                     case 1:
                         login();
                         break;
 
                     case 2:
-                        registerUser();
+                        runForm(() -> registerUser());
                         break;
 
                     case 0:
@@ -70,7 +177,6 @@ public class Main {
                 }
 
             } catch (NumberFormatException e) {
-
                 System.out.println("Please enter a valid number.");
             }
         }
@@ -79,22 +185,13 @@ public class Main {
     private void registerUser() {
 
         System.out.println();
-        System.out.println("========== REGISTER ==========");
+        System.out.println("========== REGISTER NEW USER ==========");
 
-        System.out.print("Enter full name: ");
-        String fullName = scanner.nextLine();
+        String username = readRequired("Enter username: ");
+        String password = readRequired("Enter password: ");
+        String fullName = readRequired("Enter full name: ");
 
-        System.out.print("Enter username: ");
-        String username = scanner.nextLine();
-
-        System.out.print("Enter password: ");
-        String password = scanner.nextLine();
-
-        userManager.registerUser(
-                username,
-                password,
-                fullName
-        );
+        userManager.registerUser(username, password, fullName);
     }
 
     private void login() {
@@ -102,43 +199,45 @@ public class Main {
         System.out.println();
         System.out.println("============ LOGIN ============");
 
-        System.out.print("Username: ");
-        String username = scanner.nextLine();
+        String username;
+        String password;
 
-        System.out.print("Password: ");
-        String password = scanner.nextLine();
+        fleetManager.beginForm();
+        try {
+            username = readInput("Username: ").trim();
+            password = readInput("Password: ");
+        } finally {
+            fleetManager.endForm();
+        }
 
-        SystemUser user = userManager.login(
-                username,
-                password
-        );
+        SystemUser user = userManager.login(username, password);
 
         if (user != null) {
-
             loggedInUser = user;
 
             System.out.println();
-            System.out.println("Login successful!");
-            System.out.println(
-                    "Welcome, " + loggedInUser.getUsername() + "!"
-            );
+            System.out.println("Welcome, " + loggedInUser.getFullName()
+                    + "! Loading fleet dashboard...");
 
             showMainMenu();
 
         } else {
-
             System.out.println("Invalid username or password");
         }
     }
 
-    private void showMainMenu() {
+    // ------------------------------------------------------------------
+    // Main menu
+    // ------------------------------------------------------------------
+
+    public void showMainMenu() {
 
         while (loggedInUser != null) {
 
             System.out.println();
-            System.out.println("=================================");
-            System.out.println("       FLEET RENTAL SYSTEM");
-            System.out.println("=================================");
+            System.out.println(LINE);
+            System.out.println("FRMS MAIN MENU | Logged in as: " + loggedInUser.getFullName());
+            System.out.println(LINE);
             System.out.println("[1] Add Vehicle");
             System.out.println("[2] Add Customer");
             System.out.println("[3] View Available Vehicles");
@@ -150,22 +249,20 @@ public class Main {
             System.out.println("[9] View All Customers");
             System.out.println("[10] View All Rental Agreements");
             System.out.println("[0] Logout");
-            System.out.print("Enter option: ");
+            System.out.println(LINE);
 
-            String input = scanner.nextLine();
+            String input = readInput("Enter choice > ");
 
             try {
-
-                int option = Integer.parseInt(input);
+                int option = Integer.parseInt(input.trim());
 
                 switch (option) {
-
                     case 1:
-                        addVehicle();
+                        runForm(() -> addVehicle());
                         break;
 
                     case 2:
-                        addCustomer();
+                        runForm(() -> addCustomer());
                         break;
 
                     case 3:
@@ -173,23 +270,23 @@ public class Main {
                         break;
 
                     case 4:
-                        createRentalAgreement();
+                        runForm(() -> createRentalAgreement());
                         break;
 
                     case 5:
-                        returnVehicle();
+                        runForm(() -> returnVehicle());
                         break;
 
                     case 6:
-                        System.out.println("Coming soon");
+                        viewRevenueReport();
                         break;
 
                     case 7:
-                        System.out.println("Coming soon");
+                        runForm(() -> viewVehiclesByFuelType());
                         break;
 
                     case 8:
-                        System.out.println("Coming soon");
+                        fleetManager.printAllReportables();
                         break;
 
                     case 9:
@@ -210,10 +307,22 @@ public class Main {
                 }
 
             } catch (NumberFormatException e) {
-
                 System.out.println("Please enter a valid number.");
             }
         }
+    }
+
+    private FuelType readFuelType(String prompt) {
+        FuelType[] types = FuelType.values();
+
+        System.out.println();
+        System.out.println("Select Fuel Type:");
+        for (int i = 0; i < types.length; i++) {
+            System.out.println("[" + (i + 1) + "] " + types[i]);
+        }
+
+        int option = readChoice(prompt, 1, types.length);
+        return types[option - 1];
     }
 
     private void addVehicle() {
@@ -221,139 +330,44 @@ public class Main {
         System.out.println();
         System.out.println("========== ADD VEHICLE ==========");
 
-        System.out.print("Registration Number: ");
-        String registrationNumber = scanner.nextLine();
+        String registrationNumber = readRequired("Registration Number: ");
+        String brand = readRequired("Brand: ");
+        String model = readRequired("Model: ");
+        double dailyRate = readPositiveDouble("Daily Rate: ");
 
-        System.out.print("Brand: ");
-        String brand = scanner.nextLine();
+        System.out.println();
+        System.out.println("Select Vehicle Type:");
+        System.out.println("[1] Car");
+        System.out.println("[2] Van");
+        System.out.println("[3] Truck");
+        int vehicleType = readChoice("Enter option: ", 1, 3);
 
-        System.out.print("Model: ");
-        String model = scanner.nextLine();
+        FuelType fuelType = readFuelType("Enter option: ");
 
-        System.out.print("Daily Rate: ");
+        Vehicle vehicle;
 
-        try {
+        switch (vehicleType) {
+            case 1:
+                vehicle = new Car(registrationNumber, brand, model, dailyRate, fuelType);
+                break;
 
-            double dailyRate =
-                    Double.parseDouble(scanner.nextLine());
+            case 2:
+                int passengerCapacity = readPositiveInt("Passenger Capacity: ");
+                vehicle = new Van(registrationNumber, brand, model, dailyRate,
+                        fuelType, passengerCapacity);
+                break;
 
-            System.out.println();
-            System.out.println("Select Vehicle Type:");
-            System.out.println("[1] Car");
-            System.out.println("[2] Van");
-            System.out.println("[3] Truck");
-            System.out.print("Enter option: ");
-
-            int vehicleType =
-                    Integer.parseInt(scanner.nextLine());
-
-            System.out.println();
-            System.out.println("Select Fuel Type:");
-            System.out.println("[1] PETROL");
-            System.out.println("[2] DIESEL");
-            System.out.println("[3] ELECTRIC");
-            System.out.println("[4] HYBRID");
-            System.out.print("Enter option: ");
-
-            int fuelOption =
-                    Integer.parseInt(scanner.nextLine());
-
-            FuelType fuelType;
-
-            switch (fuelOption) {
-
-                case 1:
-                    fuelType = FuelType.PETROL;
-                    break;
-
-                case 2:
-                    fuelType = FuelType.DIESEL;
-                    break;
-
-                case 3:
-                    fuelType = FuelType.ELECTRIC;
-                    break;
-
-                case 4:
-                    fuelType = FuelType.HYBRID;
-                    break;
-
-                default:
-                    System.out.println("Invalid fuel type.");
-                    return;
-            }
-
-            Vehicle vehicle;
-
-            switch (vehicleType) {
-
-                case 1:
-
-                    vehicle = new Car(
-                            registrationNumber,
-                            brand,
-                            model,
-                            dailyRate,
-                            fuelType
-                    );
-
-                    break;
-
-                case 2:
-
-                    System.out.print("Passenger Capacity: ");
-
-                    int passengerCapacity =
-                            Integer.parseInt(scanner.nextLine());
-
-                    vehicle = new Van(
-                            registrationNumber,
-                            brand,
-                            model,
-                            dailyRate,
-                            fuelType,
-                            passengerCapacity
-                    );
-
-                    break;
-
-                case 3:
-
-                    System.out.print(
-                            "Cargo Capacity (tons): "
-                    );
-
-                    double cargoCapacityTons =
-                            Double.parseDouble(scanner.nextLine());
-
-                    vehicle = new Truck(
-                            registrationNumber,
-                            brand,
-                            model,
-                            dailyRate,
-                            fuelType,
-                            cargoCapacityTons
-                    );
-
-                    break;
-
-                default:
-                    System.out.println("Invalid vehicle type.");
-                    return;
-            }
-
-            fleetManager.addVehicle(vehicle);
-
-            System.out.println();
-            System.out.println(
-                    "Vehicle added successfully: "
-                            + vehicle.getVehicleId()
-            );
-
-        } catch (NumberFormatException e) {
-
-            System.out.println("Invalid number entered.");
+            default:
+                double cargoCapacityTons = readPositiveDouble("Cargo Capacity (tons): ");
+                vehicle = new Truck(registrationNumber, brand, model, dailyRate,
+                        fuelType, cargoCapacityTons);
+                break;
         }
+
+        fleetManager.addVehicle(vehicle);
+
+        System.out.println();
+        System.out.println("Vehicle added successfully: " + vehicle.getVehicleId());
     }
 
     private void addCustomer() {
@@ -361,68 +375,28 @@ public class Main {
         System.out.println();
         System.out.println("========== ADD CUSTOMER ==========");
 
-        System.out.print("Full Name: ");
-        String fullName = scanner.nextLine();
-
-        System.out.print("Contact Number: ");
-        String contactNumber = scanner.nextLine();
+        String fullName = readRequired("Full Name: ");
+        String contactNumber = readRequired("Contact Number: ");
 
         System.out.println();
         System.out.println("[1] Individual Customer");
         System.out.println("[2] Corporate Customer");
-        System.out.print("Enter customer type: ");
+        int customerType = readChoice("Enter customer type: ", 1, 2);
 
-        try {
+        Customer customer;
 
-            int customerType =
-                    Integer.parseInt(scanner.nextLine());
-
-            Customer customer;
-
-            switch (customerType) {
-
-                case 1:
-
-                    customer = new IndividualCustomer(
-                            fullName,
-                            contactNumber,
-                            0
-                    );
-
-                    break;
-
-                case 2:
-
-                    System.out.print("Credit Limit: ");
-
-                    double creditLimit =
-                            Double.parseDouble(scanner.nextLine());
-
-                    customer = new CorporateCustomer(
-                            fullName,
-                            contactNumber,
-                            creditLimit
-                    );
-
-                    break;
-
-                default:
-                    System.out.println("Invalid customer type.");
-                    return;
-            }
-
-            fleetManager.addCustomer(customer);
-
-            System.out.println();
-            System.out.println(
-                    "Customer added successfully: "
-                            + customer.getCustomerId()
-            );
-
-        } catch (NumberFormatException e) {
-
-            System.out.println("Invalid number entered.");
+        if (customerType == 1) {
+            int loyaltyPoints = readNonNegativeInt("Loyalty Points: ");
+            customer = new IndividualCustomer(fullName, contactNumber, loyaltyPoints);
+        } else {
+            double creditLimit = readPositiveDouble("Credit Limit: ");
+            customer = new CorporateCustomer(fullName, contactNumber, creditLimit);
         }
+
+        fleetManager.addCustomer(customer);
+
+        System.out.println();
+        System.out.println("Customer added successfully: " + customer.getCustomerId());
     }
 
     private void viewAvailableVehicles() {
@@ -430,15 +404,10 @@ public class Main {
         System.out.println();
         System.out.println("======= AVAILABLE VEHICLES =======");
 
-        List<Vehicle> vehicles =
-                fleetManager.getAvailableVehicles();
+        List<Vehicle> vehicles = fleetManager.getAvailableVehicles();
 
         if (vehicles.isEmpty()) {
-
-            System.out.println(
-                    "No vehicles are currently available."
-            );
-
+            System.out.println("No vehicles are currently available.");
             return;
         }
 
@@ -450,53 +419,38 @@ public class Main {
     private void createRentalAgreement() {
 
         System.out.println();
-        System.out.println(
-                "====== CREATE RENTAL AGREEMENT ======"
-        );
+        System.out.println("====== CREATE RENTAL AGREEMENT ======");
 
-        System.out.print("Vehicle ID: ");
-        String vehicleId = scanner.nextLine();
-
-        System.out.print("Customer ID: ");
-        String customerId = scanner.nextLine();
-
-        System.out.print("Rental Days: ");
+        String vehicleId = readRequired("Vehicle ID: ");
+        String customerId = readRequired("Customer ID: ");
+        int rentalDays = readPositiveInt("Rental Days: ");
 
         try {
-
-            int rentalDays =
-                    Integer.parseInt(scanner.nextLine());
-
             RentalAgreement agreement =
-                    fleetManager.createRentalAgreement(
-                            vehicleId,
-                            customerId,
-                            rentalDays
-                    );
+                    fleetManager.createRentalAgreement(vehicleId, customerId, rentalDays);
 
             if (agreement != null) {
-
                 System.out.println();
-                System.out.println(
-                        "Rental agreement created successfully."
-                );
-
                 System.out.println(agreement);
+                printPriceBreakdown(agreement);
             }
 
-        } catch (VehicleNotAvailableException
-                 | InsufficientCreditException e) {
-
-            System.out.println(
-                    "Rental failed: " + e.getMessage()
-            );
-
-        } catch (NumberFormatException e) {
-
-            System.out.println(
-                    "Please enter a valid number for rental days."
-            );
+        } catch (VehicleNotAvailableException | InsufficientCreditException e) {
+            System.out.println("Rental failed: " + e.getMessage());
         }
+    }
+
+    /** Shows how the discount was applied (the receipt itself only shows the final total). */
+    private void printPriceBreakdown(RentalAgreement agreement) {
+        double subtotal = agreement.getVehicle().calculateRentalCost(agreement.getRentalDays());
+        double total = agreement.getTotalCost();
+        double discount = subtotal - total;
+        double percent = subtotal > 0 ? (discount / subtotal) * 100 : 0;
+
+        System.out.println("Price breakdown");
+        System.out.printf("  Subtotal : %,.2f%n", subtotal);
+        System.out.printf("  Discount : %,.2f (%.0f%%)%n", discount, percent);
+        System.out.printf("  Total    : %,.2f%n", total);
     }
 
     private void returnVehicle() {
@@ -504,10 +458,42 @@ public class Main {
         System.out.println();
         System.out.println("========= RETURN VEHICLE =========");
 
-        System.out.print("Rental Agreement ID: ");
-        String agreementId = scanner.nextLine();
+        String agreementId = readRequired("Rental Agreement ID: ");
 
         fleetManager.returnVehicle(agreementId);
+    }
+
+    private void viewRevenueReport() {
+
+        System.out.println();
+        System.out.println("================================================================");
+        System.out.println("FLEET REVENUE REPORT");
+        System.out.println("================================================================");
+        System.out.printf("Total Revenue: %,.2f%n", fleetManager.generateRevenueReport());
+        System.out.println("----------------------------------------------------------------");
+    }
+
+    private void viewVehiclesByFuelType() {
+
+        System.out.println();
+        System.out.println("======= VEHICLES BY FUEL TYPE =======");
+
+        FuelType fuelType = readFuelType("Select fuel type: ");
+
+        List<Vehicle> vehicles = fleetManager.getVehiclesByFuelType(fuelType);
+
+        System.out.println();
+        System.out.println("Fuel Type: " + fuelType);
+        System.out.println("-------------------------------------");
+
+        if (vehicles.isEmpty()) {
+            System.out.println("No vehicles found for this fuel type.");
+            return;
+        }
+
+        for (Vehicle vehicle : vehicles) {
+            System.out.println(vehicle);
+        }
     }
 
     private void viewAllCustomers() {
@@ -515,13 +501,10 @@ public class Main {
         System.out.println();
         System.out.println("========== ALL CUSTOMERS ==========");
 
-        List<Customer> customers =
-                fleetManager.getAllCustomers();
+        List<Customer> customers = fleetManager.getAllCustomers();
 
         if (customers.isEmpty()) {
-
             System.out.println("No customers found.");
-
             return;
         }
 
@@ -533,19 +516,12 @@ public class Main {
     private void viewAllRentalAgreements() {
 
         System.out.println();
-        System.out.println(
-                "======= ALL RENTAL AGREEMENTS ======="
-        );
+        System.out.println("======= ALL RENTAL AGREEMENTS =======");
 
-        List<RentalAgreement> agreements =
-                fleetManager.getAllAgreements();
+        List<RentalAgreement> agreements = fleetManager.getAllAgreements();
 
         if (agreements.isEmpty()) {
-
-            System.out.println(
-                    "No rental agreements found."
-            );
-
+            System.out.println("No rental agreements found.");
             return;
         }
 

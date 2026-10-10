@@ -37,4 +37,12 @@ public class CorporateCustomer extends Customer {
     public boolean hasSufficientCredit(double cost) {
         return (outstandingBalance + cost) <= creditLimit;
     }
+
+    @Override
+    public String toString() {
+        return super.toString()
+                + "\nCustomer Type      : Corporate"
+                + "\nCredit Limit       : " + creditLimit
+                + "\nOutstanding Balance: " + outstandingBalance;
+    }
 }

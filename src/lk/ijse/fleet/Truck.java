@@ -24,4 +24,10 @@ public class Truck extends Vehicle {
         return (getDailyRate() * rentalDays * getFuelType().getCostMultiplier())
                 + (cargoCapacityTons * 10.00 * rentalDays);
     }
+
+    @Override
+    public String toString() {
+        return super.toString()
+                + "\nCargo Capacity    : " + cargoCapacityTons + " tons";
+    }
 }

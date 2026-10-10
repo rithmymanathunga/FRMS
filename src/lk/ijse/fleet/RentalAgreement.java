@@ -8,12 +8,10 @@ public class RentalAgreement {
     private final Vehicle vehicle;
     private final Customer customer;
     private final int rentalDays;
-    private final double subtotal;
     private final double totalCost;
     private int daysElapsed;
 
     public RentalAgreement(Vehicle vehicle, Customer customer, int rentalDays) {
-
         idCounter++;
         this.agreementId = String.format("AGR-%04d", idCounter);
 
@@ -21,7 +19,7 @@ public class RentalAgreement {
         this.customer = customer;
         this.rentalDays = rentalDays;
 
-        this.subtotal = vehicle.calculateRentalCost(rentalDays);
+        double subtotal = vehicle.calculateRentalCost(rentalDays);
         this.totalCost = customer.applyDiscount(subtotal);
 
         this.daysElapsed = 0;
@@ -43,10 +41,6 @@ public class RentalAgreement {
         return rentalDays;
     }
 
-    public double getSubtotal() {
-        return subtotal;
-    }
-
     public double getTotalCost() {
         return totalCost;
     }
@@ -61,14 +55,22 @@ public class RentalAgreement {
 
     @Override
     public String toString() {
-        return "RentalAgreement{"
-                + "agreementId='" + agreementId + '\''
-                + ", vehicle=" + vehicle.getVehicleId()
-                + ", customer=" + customer.getCustomerId()
-                + ", rentalDays=" + rentalDays
-                + ", subtotal=" + subtotal
-                + ", totalCost=" + totalCost
-                + ", daysElapsed=" + daysElapsed
-                + '}';
+        String line = "================================================================";
+        // "IndividualCustomer" -> "Individual", "CorporateCustomer" -> "Corporate"
+        String customerType = customer.getClass().getSimpleName().replace("Customer", "");
+
+        return line + "\n"
+                + "RENTAL AGREEMENT RECEIPT\n"
+                + line + "\n"
+                + "Agreement ID : " + agreementId + "\n"
+                + "Vehicle      : " + vehicle.getVehicleId()
+                + " - " + vehicle.getBrand() + " " + vehicle.getModel()
+                + " (" + vehicle.getClass().getSimpleName() + ")\n"
+                + "Customer     : " + customer.getCustomerId()
+                + " - " + customer.getFullName()
+                + " (" + customerType + ")\n"
+                + "Rental Days  : " + rentalDays + "\n"
+                + "Total Cost   : " + String.format("%,.2f", totalCost) + "\n"
+                + line;
     }
 }

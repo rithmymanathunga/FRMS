@@ -34,4 +34,11 @@ public class IndividualCustomer extends Customer {
 
         return subtotal * (1 - discountRate);
     }
+
+    @Override
+    public String toString() {
+        return super.toString()
+                + "\nCustomer Type    : Individual"
+                + "\nLoyalty Points   : " + loyaltyPoints;
+    }
 }

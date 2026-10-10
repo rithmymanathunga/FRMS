@@ -14,10 +14,8 @@ public abstract class Vehicle implements Reportable {
 
     public Vehicle(String registrationNumber, String brand, String model,
                    double dailyRate, FuelType fuelType) {
-
         idCounter++;
         this.vehicleId = String.format("VEH-%04d", idCounter);
-
         this.registrationNumber = registrationNumber;
         this.brand = brand;
         this.model = model;
@@ -92,14 +90,13 @@ public abstract class Vehicle implements Reportable {
 
     @Override
     public String toString() {
-        return "Vehicle{"
-                + "vehicleId='" + vehicleId + '\''
-                + ", registrationNumber='" + registrationNumber + '\''
-                + ", brand='" + brand + '\''
-                + ", model='" + model + '\''
-                + ", dailyRate=" + dailyRate
-                + ", fuelType=" + fuelType
-                + ", status=" + status
-                + '}';
+        return "\n"
+                + "Vehicle ID      : " + vehicleId + "\n"
+                + "Registration No : " + registrationNumber + "\n"
+                + "Brand           : " + brand + "\n"
+                + "Model           : " + model + "\n"
+                + "Daily Rate      : " + String.format("%,.2f", dailyRate) + "\n"
+                + "Fuel Type       : " + fuelType + "\n"
+                + "Status          : " + status;
     }
 }

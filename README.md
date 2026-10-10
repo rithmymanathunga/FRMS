@@ -17,12 +17,12 @@ JDK 25 or newer. I used IntelliJ, but a terminal with javac works too. There are
 
 All the classes are in the package lk.ijse.fleet under src/lk/ijse/fleet/.
 
-## Linux / macOS / Git Bash:
+**Linux / macOS / Git Bash:** 
 
 javac -d bin $(find src -name "*.java")
 java -cp bin lk.ijse.fleet.Main
 
-## Windows PowerShell:
+**Windows PowerShell:**
 
 javac -d bin (Get-ChildItem -Recurse src -Filter *.java).FullName
 java -cp bin lk.ijse.fleet.Main

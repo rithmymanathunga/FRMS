@@ -1,8 +1,8 @@
-#Fleet Rental Management System (FRMS)
+# Fleet Rental Management System (FRMS)
 
-ITS1033 Object-Oriented Programming HDSE 77
-Student Name :Rithmi Manathunga 
-Student ID :252771009
+**Module:**ITS1033 Object-Oriented Programming HDSE 77
+**Student Name :** Rithmi Manathunga 
+**Student ID :** 252771009
 
 
 This is my OOP coursework. It's a console app for a small vehicle rental company where you can register, log in, add vehicles and customers, create rentals, return them and look at a few reports. Two background threads watch the fleet while the menu is running.
